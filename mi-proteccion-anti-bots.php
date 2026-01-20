@@ -44,9 +44,9 @@ class Proteccion_Anti_Bots {
     public function init_actualizaciones() {
         // --- CONFIGURACIÓN DE GITHUB ---
         // IMPORTANTE: Edita estos valores con tus datos de GitHub reales
-        $this->plugin_slug = 'mi-proteccion-anti-bots/mi-proteccion-anti-bots.php';
-        $this->repo_user   = 'xoreaxmrgamer'; // <--- CAMBIA ESTO
-        $this->repo_name   = 'XorEax-WordPress-Security'; // <--- CAMBIA ESTO
+        $this->plugin_slug = 'proteccion-anti-bots/proteccion-anti-bots.php';
+        $this->repo_user   = 'xoreaxmrgamer';
+        $this->repo_name   = 'XorEax-WordPress-Security';
         // -------------------------------
 
         add_filter( 'pre_set_site_transient_update_plugins', array( $this, 'check_for_update' ) );
@@ -105,7 +105,7 @@ class Proteccion_Anti_Bots {
 
     private function get_remote_version() {
         // URL del archivo RAW para leer la versión desde la cabecera del comentario
-        $request = wp_remote_get( 'https://raw.githubusercontent.com/' . $this->repo_user . '/' . $this->repo_name . '/main/mi-proteccion-anti-bots.php' );
+        $request = wp_remote_get( 'https://raw.githubusercontent.com/' . $this->repo_user . '/' . $this->repo_name . '/main/proteccion-anti-bots.php' );
         
         if ( is_wp_error( $request ) || wp_remote_retrieve_response_code( $request ) != '200' ) {
             return false;
@@ -126,7 +126,7 @@ class Proteccion_Anti_Bots {
             'Anti-Bots y Protección 404', 
             'Anti-Bots',                  
             'manage_options',             
-            'mi-proteccion-anti-bots',    
+            'proteccion-anti-bots',    
             array( $this, 'pagina_opciones' ) 
         );
     }
@@ -301,3 +301,4 @@ class Proteccion_Anti_Bots {
 // Inicializar el plugin
 new Proteccion_Anti_Bots();
 ?>
+

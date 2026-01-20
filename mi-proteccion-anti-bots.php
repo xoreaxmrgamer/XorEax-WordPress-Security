@@ -45,8 +45,8 @@ class Proteccion_Anti_Bots {
         // --- CONFIGURACIÓN DE GITHUB ---
         // IMPORTANTE: Edita estos valores con tus datos de GitHub reales
         $this->plugin_slug = 'mi-proteccion-anti-bots/mi-proteccion-anti-bots.php';
-        $this->repo_user   = 'TU_USUARIO_DE_GITHUB'; // <--- CAMBIA ESTO
-        $this->repo_name   = 'NOMBRE_DEL_REPOSITORIO'; // <--- CAMBIA ESTO
+        $this->repo_user   = 'xoreaxmrgamer'; // <--- CAMBIA ESTO
+        $this->repo_name   = 'XorEax-WordPress-Security'; // <--- CAMBIA ESTO
         // -------------------------------
 
         add_filter( 'pre_set_site_transient_update_plugins', array( $this, 'check_for_update' ) );

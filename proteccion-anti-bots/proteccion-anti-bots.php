@@ -2,8 +2,9 @@
 /*
 Plugin Name: Protección Anti-Bots y 404 Profesional
 Description: Bloqueo de bots maliciosos, limitación de errores 404 y alertas de seguridad. Incluye sistema de actualizaciones.
-Version: 4.2.2
+Version: 4.4
 Author: XorEax MrGamer
+Update URI: https://github.com/xoreaxmrgamer/XorEax-WordPress-Security
 GITHUB: https://github.com/xoreaxmrgamer/XorEax-WordPress-Security
 Youtube: https://www.youtube.com/@xoreaxmrgamer
 */
@@ -24,40 +25,66 @@ class Proteccion_Anti_Bots {
     public $repo_name;
 
     public function __construct() {
-        // 1. Enlaces de acción (Ajustes, Soporte, etc.)
+        // 1. Forzar que WordPress reconozca el plugin como soportado para Auto-Updates (WP 5.6+)
+        add_filter( 'plugin_row_meta', array( $this, 'forzar_soporte_auto_update' ), 10, 2 );
+
+        // 2. Control del interruptor de Auto-Update (solo si hay actualización)
+        add_filter( 'auto_update_plugin', array( $this, 'controlar_auto_update' ), 10, 2 );
+
+        // 3. Enlaces de acción
         add_filter( 'plugin_action_links_' . PROTECCION_ANTI_BOTS_FILE, array( $this, 'agregar_enlaces_plugin' ) );
 
-        // 2. Asegurar compatibilidad con Auto-Updates
-        add_filter( 'plugin_row_meta', array( $this, 'agregar_meta_auto_update' ), 10, 2 );
-
-        // 3. Menú de administración
+        // 4. Menú de administración
         add_action( 'admin_menu', array( $this, 'agregar_menu_admin' ) );
         add_action( 'admin_init', array( $this, 'registrar_ajustes' ) );
 
-        // 4. Alertas
+        // 5. Alertas
         add_action( 'admin_notices', array( $this, 'alerta_usuario_publico' ) );
 
-        // 5. Actualizaciones
+        // 6. Actualizaciones (Check de versión)
         $this->init_actualizaciones();
 
-        // 6. Bloqueos
+        // 7. Bloqueos
         if ( $this->get_opcion('plugin_activo') == '1' ) {
             add_action( 'init', array( $this, 'bloquear_bots_conocidos' ) );
             add_action( 'template_redirect', array( $this, 'verificar_404_y_bloquear' ) );
         }
     }
 
-    // --- META PARA ACTUALIZACIONES AUTOMÁTICAS ---
-    public function agregar_meta_auto_update( $plugin_meta, $plugin_file ) {
+    // --- 1. FORZAR SOPORTE AUTO-UPDATE ---
+    public function forzar_soporte_auto_update( $plugin_meta, $plugin_file ) {
         if ( $plugin_file !== PROTECCION_ANTI_BOTS_FILE ) {
             return $plugin_meta;
         }
-        // Esto le dice a WordPress que el plugin soporta auto-actualizaciones
-        $plugin_meta[] = '<span>Soporta actualizaciones automáticas</span>';
+        // Atributo crítico para que WordPress entienda que puede actualizar este plugin
+        $plugin_meta[] = '<span class="compatibility-compatible"><span class="dashicons dashicons-yes"></span> Compatible con Auto-Updates</span>';
+        
+        // Inyectar atributo data para JavaScript de WordPress
+        $plugin_meta[] = '<script>jQuery(function(){ jQuery("tr[data-plugin=\'' . PROTECCION_ANTI_BOTS_FILE . '\']").addClass("update-supported"); });</script>';
+        
         return $plugin_meta;
     }
 
-    // --- ENLACES VISUALES ---
+    // --- 2. CONTROL DEL INTERRUPTOR ---
+    public function controlar_auto_update( $update, $item ) {
+        if ( $item->plugin !== PROTECCION_ANTI_BOTS_FILE ) {
+            return $update;
+        }
+        
+        // Si el usuario ha activado la opción en Ajustes, devolvemos true
+        // Si está desactivada, devolvemos false.
+        // Si no ha elegido nada (null), usamos el valor por defecto de WordPress.
+        $opcion_auto = get_option( 'auto_update_plugins' ); 
+        
+        // Comprobar si está en la lista blanca de auto-update del sitio
+        if ( is_array( $opcion_auto ) && in_array( PROTECCION_ANTI_BOTS_FILE, $opcion_auto ) ) {
+            return true;
+        }
+
+        return $update;
+    }
+
+    // --- 3. ENLACES VISUALES ---
     public function agregar_enlaces_plugin( $links ) {
         $enlaces_ajustes = array(
             'ajustes' => '<a href="' . admin_url( 'options-general.php?page=proteccion-anti-bots' ) . '">Ajustes</a>',
@@ -92,7 +119,25 @@ class Proteccion_Anti_Bots {
                 $obj->new_version = $remote_version;
                 $obj->url = 'https://github.com/' . $this->repo_user . '/' . $this->repo_name;
                 $obj->package = 'https://github.com/' . $this->repo_user . '/' . $this->repo_name . '/archive/refs/heads/main.zip';
+                $obj->upgrade_notice = "Actualización disponible desde GitHub.";
+                
+                // Atributo crítico: WordPress usa esto para saber si mostrar el toggle
+                $obj->update_supported = true;
+
                 $transient->response[$this->plugin_slug] = $obj;
+            } else {
+                // Si no hay actualización, nos aseguramos de que WP sepa que el plugin SÍ soporta actualizaciones
+                // Esto es necesario para que aparezca el toggle incluso cuando está al día
+                if ( isset( $transient->no_update ) && ! isset( $transient->no_update[$this->plugin_slug] ) ) {
+                     $obj_no_update = new stdClass();
+                     $obj_no_update->slug = dirname( $this->plugin_slug );
+                     $obj_no_update->plugin = $this->plugin_slug;
+                     $obj_no_update->new_version = $local_version;
+                     $obj_no_update->url = 'https://github.com/' . $this->repo_user . '/' . $this->repo_name;
+                     $obj_no_update->package = '';
+                     $obj_no_update->update_supported = true;
+                     $transient->no_update[$this->plugin_slug] = $obj_no_update;
+                }
             }
         }
         return $transient;
@@ -115,7 +160,7 @@ class Proteccion_Anti_Bots {
         $info->tested = '6.4';
         $info->sections = array(
             'description' => 'Plugin de seguridad para WordPress.',
-            'changelog' => '<h4>Versión ' . $remote_version . '</h4><ul><li>Restaurada la sección de información en los ajustes.</li></ul>'
+            'changelog' => '<h4>Versión ' . $remote_version . '</h4><ul><li>Forzado soporte completo para auto-actualizaciones.</li></ul>'
         );
         $info->download_link = 'https://github.com/' . $this->repo_user . '/' . $this->repo_name . '/archive/refs/heads/main.zip';
         return $info;

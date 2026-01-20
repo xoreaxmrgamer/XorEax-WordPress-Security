@@ -2,7 +2,7 @@
 /*
 Plugin Name: Protección Anti-Bots y 404 Profesional
 Description: Bloqueo de bots maliciosos, limitación de errores 404 y alertas de seguridad. Incluye sistema de actualizaciones.
-Version: 4.2.1
+Version: 4.2.2
 Author: XorEax MrGamer
 GITHUB: https://github.com/xoreaxmrgamer/XorEax-WordPress-Security
 Youtube: https://www.youtube.com/@xoreaxmrgamer
@@ -52,7 +52,6 @@ class Proteccion_Anti_Bots {
         if ( $plugin_file !== PROTECCION_ANTI_BOTS_FILE ) {
             return $plugin_meta;
         }
-        
         // Esto le dice a WordPress que el plugin soporta auto-actualizaciones
         $plugin_meta[] = '<span>Soporta actualizaciones automáticas</span>';
         return $plugin_meta;
@@ -116,14 +115,13 @@ class Proteccion_Anti_Bots {
         $info->tested = '6.4';
         $info->sections = array(
             'description' => 'Plugin de seguridad para WordPress.',
-            'changelog' => '<h4>Versión ' . $remote_version . '</h4><ul><li>Corrección de compatibilidad con auto-actualizaciones.</li></ul>'
+            'changelog' => '<h4>Versión ' . $remote_version . '</h4><ul><li>Restaurada la sección de información en los ajustes.</li></ul>'
         );
         $info->download_link = 'https://github.com/' . $this->repo_user . '/' . $this->repo_name . '/archive/refs/heads/main.zip';
         return $info;
     }
 
     private function get_remote_version() {
-        // Nota: La ruta debe coincidir con la estructura real en GitHub
         $request = wp_remote_get( 'https://raw.githubusercontent.com/' . $this->repo_user . '/' . $this->repo_name . '/main/proteccion-anti-bots/proteccion-anti-bots.php' );
         
         if ( is_wp_error( $request ) || wp_remote_retrieve_response_code( $request ) != '200' ) {
@@ -154,6 +152,7 @@ class Proteccion_Anti_Bots {
         <div class="wrap">
             <h1>⚔️ Configuración de Protección Anti-Bots</h1>
             <p>Plugin desarrollado por <a href="https://github.com/xoreaxmrgamer" target="_blank">XorEax MrGamer</a> | <a href="https://www.youtube.com/@xoreaxmrgamer" target="_blank">Canal de YouTube</a></p>
+            
             <form method="post" action="options.php">
                 <?php settings_fields( 'mi_grupo_ajustes' ); do_settings_sections( 'mi_grupo_ajustes' ); ?>
                 <table class="form-table">
@@ -194,6 +193,11 @@ class Proteccion_Anti_Bots {
                 </table>
                 <?php submit_button(); ?>
             </form>
+
+            <hr>
+            <h3>ℹ️ Información</h3>
+            <p>Las IPs bloqueadas se almacenan en la base de datos temporalmente (Transients). Para ver logs detallados de ataques, se recomienda usar un plugin de seguridad dedicado o revisar los registros del servidor (cPanel/Plesk).</p>
+            <p><em>Este plugin busca actualizaciones en GitHub. Si has modificado el código localmente, asegúrate de subir los cambios a tu repositorio para mantener la sincronización.</em></p>
         </div>
         <?php
     }

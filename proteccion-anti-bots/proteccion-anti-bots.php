@@ -1,8 +1,8 @@
 <?php
 /*
 Plugin Name: Protección Anti-Bots y 404 Profesional
-Description: Bloqueo de bots maliciosos, limitación de errores 404 y alertas de seguridad. Incluye sistema de actualizaciones.
-Version: 4.5
+Description: Bloqueo de bots maliciosos, limitación de errores 404, alertas de seguridad y bloqueo geográfico. Incluye sistema de actualizaciones.
+Version: 5.0
 Author: XorEax MrGamer
 Update URI: https://github.com/xoreaxmrgamer/XorEax-WordPress-Security
 GITHUB: https://github.com/xoreaxmrgamer/XorEax-WordPress-Security
@@ -48,21 +48,19 @@ class Proteccion_Anti_Bots {
         // 7. Actualizaciones (Check de versión)
         $this->init_actualizaciones();
 
-        // 8. Bloqueos
+        // 8. Bloqueos (solo si el plugin está activado en ajustes)
         if ( $this->get_opcion('plugin_activo') == '1' ) {
+            // Ejecutar chequeo geográfico muy temprano
+            add_action( 'init', array( $this, 'verificar_bloqueo_geografico' ), 1 );
+            
             add_action( 'init', array( $this, 'bloquear_bots_conocidos' ) );
             add_action( 'template_redirect', array( $this, 'verificar_404_y_bloquear' ) );
         }
     }
 
-    // --- 1. GESTIÓN DE AUTO-UPDATES AL ACTIVAR/DESACTIVAR ---
-    public function al_activar_plugin() {
-        // Al activar el plugin, aseguramos que esté en la lista de auto-update si estaba activado antes
-        // O simplemente dejamos que el usuario lo decida en ajustes (no forzamos nada aquí por defecto)
-    }
-
+    // --- 1. GESTIÓN DE AUTO-UPDATES ---
+    public function al_activar_plugin() { }
     public function al_desactivar_plugin() {
-        // AL DESACTIVAR EL PLUGIN: Eliminarlo de la lista de actualizaciones automáticas
         $auto_updates = get_option( 'auto_update_plugins', array() );
         if ( in_array( PROTECCION_ANTI_BOTS_FILE, $auto_updates ) ) {
             $auto_updates = array_diff( $auto_updates, array( PROTECCION_ANTI_BOTS_FILE ) );
@@ -72,32 +70,15 @@ class Proteccion_Anti_Bots {
 
     // --- 2. FORZAR SOPORTE AUTO-UPDATE ---
     public function forzar_soporte_auto_update( $plugin_meta, $plugin_file ) {
-        if ( $plugin_file !== PROTECCION_ANTI_BOTS_FILE ) {
-            return $plugin_meta;
-        }
-        // Inyectar atributo data para JavaScript de WordPress
+        if ( $plugin_file !== PROTECCION_ANTI_BOTS_FILE ) { return $plugin_meta; }
         $plugin_meta[] = '<script>jQuery(function(){ jQuery("tr[data-plugin=\'' . PROTECCION_ANTI_BOTS_FILE . '\']").addClass("update-supported"); });</script>';
         return $plugin_meta;
     }
 
     // --- 3. CONTROL DEL INTERRUPTOR ---
     public function controlar_auto_update( $update, $item ) {
-        // Solo afectar a este plugin
-        if ( $item->plugin !== PROTECCION_ANTI_BOTS_FILE ) {
-            return $update;
-        }
-
-        // Leer la opción personalizada de nuestro panel de ajustes
-        $opcion_nuestra = $this->get_opcion('activar_auto_update_plugin');
-
-        // Si el usuario marcó "Activar" en nuestros ajustes, forzamos TRUE
-        if ( $opcion_nuestra == '1' ) {
-            return true;
-        }
-
-        // Si el usuario NO lo marcó, o es null, forzamos FALSE para desactivar el toggle de WP
-        // Esto asegura que nuestro control tenga prioridad
-        return false;
+        if ( $item->plugin !== PROTECCION_ANTI_BOTS_FILE ) { return $update; }
+        return ( $this->get_opcion('activar_auto_update_plugin') == '1' ) ? true : false;
     }
 
     // --- 4. ENLACES VISUALES ---
@@ -122,7 +103,6 @@ class Proteccion_Anti_Bots {
 
     public function check_for_update( $transient ) {
         if ( empty( $transient->checked ) ) { return $transient; }
-
         $remote_version = $this->get_remote_version();
         if ( $remote_version ) {
             $plugin_data = get_plugin_data( WP_PLUGIN_DIR . '/' . $this->plugin_slug );
@@ -135,11 +115,9 @@ class Proteccion_Anti_Bots {
                 $obj->new_version = $remote_version;
                 $obj->url = 'https://github.com/' . $this->repo_user . '/' . $this->repo_name;
                 $obj->package = 'https://github.com/' . $this->repo_user . '/' . $this->repo_name . '/archive/refs/heads/main.zip';
-                $obj->upgrade_notice = "Actualización disponible desde GitHub.";
                 $obj->update_supported = true;
                 $transient->response[$this->plugin_slug] = $obj;
             } else {
-                // Forzar soporte visual de actualización
                 if ( isset( $transient->no_update ) && ! isset( $transient->no_update[$this->plugin_slug] ) ) {
                      $obj_no_update = new stdClass();
                      $obj_no_update->slug = dirname( $this->plugin_slug );
@@ -158,7 +136,6 @@ class Proteccion_Anti_Bots {
     public function plugin_info( $false, $action, $args ) {
         $slug_plugin = dirname( $this->plugin_slug );
         if ( $args->slug !== $slug_plugin ) { return $false; }
-
         $remote_version = $this->get_remote_version();
         if ( ! $remote_version ) { return $false; }
 
@@ -171,8 +148,8 @@ class Proteccion_Anti_Bots {
         $info->requires = '5.0';
         $info->tested = '6.4';
         $info->sections = array(
-            'description' => 'Plugin de seguridad para WordPress.',
-            'changelog' => '<h4>Versión ' . $remote_version . '</h4><ul><li>Añadido control manual de actualizaciones automáticas en Ajustes.</li><li>Las actualizaciones se desactivan automáticamente al desactivar el plugin.</li></ul>'
+            'description' => 'Plugin de seguridad avanzada para WordPress.',
+            'changelog' => '<h4>Versión ' . $remote_version . '</h4><ul><li>Nuevo: Bloqueo Geográfico por Países.</li><li>Nuevo: Detección automática de país mediante API externa con caché.</li></ul>'
         );
         $info->download_link = 'https://github.com/' . $this->repo_user . '/' . $this->repo_name . '/archive/refs/heads/main.zip';
         return $info;
@@ -180,13 +157,48 @@ class Proteccion_Anti_Bots {
 
     private function get_remote_version() {
         $request = wp_remote_get( 'https://raw.githubusercontent.com/' . $this->repo_user . '/' . $this->repo_name . '/main/proteccion-anti-bots/proteccion-anti-bots.php' );
-        
-        if ( is_wp_error( $request ) || wp_remote_retrieve_response_code( $request ) != '200' ) {
-            return false;
-        }
+        if ( is_wp_error( $request ) || wp_remote_retrieve_response_code( $request ) != '200' ) { return false; }
         $body = wp_remote_retrieve_body( $request );
         preg_match( '/Version:\s*(.*)/', $body, $matches );
         return isset( $matches[1] ) ? trim( $matches[1] ) : false;
+    }
+
+    // --- NUEVO: LÓGICA DE BLOQUEO GEOGRÁFICO ---
+    public function verificar_bloqueo_geografico() {
+        if ( $this->get_opcion('activar_bloqueo_geo') != '1' ) return;
+
+        $ip = $this->obtener_ip_real();
+        // No bloquear IPs locales
+        if ( $ip == '127.0.0.1' || $ip == '::1' ) return;
+
+        // 1. Comprobar si ya tenemos el país en caché (Transient)
+        $cache_key = 'pais_ip_' . md5( $ip );
+        $pais_codigo = get_transient( $cache_key );
+
+        // 2. Si no está en caché, consultar API
+        if ( $pais_codigo === false ) {
+            // Usamos ip-api.com (API gratuita y ligera)
+            $response = wp_remote_get( 'http://ip-api.com/json/' . $ip . '?fields=countryCode' );
+            
+            if ( ! is_wp_error( $response ) && wp_remote_retrieve_response_code( $response ) == 200 ) {
+                $data = json_decode( wp_remote_retrieve_body( $response ) );
+                if ( isset( $data->countryCode ) ) {
+                    $pais_codigo = $data->countryCode;
+                    // Guardar en caché por 24 horas para no ralentizar
+                    set_transient( $cache_key, $pais_codigo, 24 * HOUR_IN_SECONDS );
+                }
+            }
+        }
+
+        // 3. Verificar si el país está en la lista negra
+        if ( $pais_codigo ) {
+            $lista_paises_raw = $this->get_opcion('lista_paises_bloqueados');
+            $paises_bloqueados = array_filter( array_map( 'trim', explode( "\n", $lista_paises_raw ) ) );
+
+            if ( in_array( strtoupper( $pais_codigo ), $paises_bloqueados ) ) {
+                $this->bloquear_acceso( 'Acceso denegado por razón geográfica.' );
+            }
+        }
     }
 
     // --- PANEL DE AJUSTES ---
@@ -221,9 +233,26 @@ class Proteccion_Anti_Bots {
                         <th scope="row">Actualizaciones Automáticas</th>
                         <td>
                             <label><input type="checkbox" name="mi_proteccion_ajustes[activar_auto_update_plugin]" value="1" <?php checked( $this->get_opcion('activar_auto_update_plugin'), '1' ); ?>> <strong>Activar actualizaciones automáticas</strong></label>
-                            <p class="description">Si marcas esta casilla, el plugin se actualizará solo cuando haya nuevas versiones en GitHub. Si desactivas el plugin completo, esta opción se desactivará automáticamente.</p>
                         </td>
                     </tr>
+
+                    <!-- NUEVA SECCIÓN GEOGRÁFICA -->
+                    <tr>
+                        <th scope="row">Bloqueo Geográfico</th>
+                        <td>
+                            <label><input type="checkbox" name="mi_proteccion_ajustes[activar_bloqueo_geo]" value="1" <?php checked( $this->get_opcion('activar_bloqueo_geo'), '1' ); ?>> <strong>Activar bloqueo por Países</strong></label>
+                            <p class="description">Bloquea el acceso basándose en la ubicación del visitante. Requiere conexión a internet para consultar la IP la primera vez.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Países a Bloquear</th>
+                        <td>
+                            <textarea name="mi_proteccion_ajustes[lista_paises_bloqueados]" rows="5" cols="50" class="large-text code" placeholder="Ej: CN&#10;RU&#10;KP"><?php echo esc_textarea( $this->get_opcion('lista_paises_bloqueados') ); ?></textarea>
+                            <p class="description">Introduce los códigos de país (ISO 3166-1 alpha-2), uno por línea. Ej: <strong>US</strong> (EE.UU), <strong>CN</strong> (China), <strong>RU</strong> (Rusia). <a href="https://es.wikipedia.org/wiki/ISO_3166-1" target="_blank">Ver lista completa de códigos</a>.</p>
+                        </td>
+                    </tr>
+                    <!-- FIN SECCIÓN GEOGRÁFICA -->
+
                     <tr>
                         <th scope="row">Bloqueo por User-Agent</th>
                         <td><label><input type="checkbox" name="mi_proteccion_ajustes[activar_user_agent]" value="1" <?php checked( $this->get_opcion('activar_user_agent'), '1' ); ?>> Activar bloqueo de Bots conocidos</label></td>
@@ -326,8 +355,11 @@ class Proteccion_Anti_Bots {
         else { return $_SERVER['REMOTE_ADDR']; }
     }
 
-    private function bloquear_acceso() {
-        status_header( 403 ); nocache_headers(); die( 'Acceso denegado.' );
+    // Modificado para permitir mensaje personalizado o genérico
+    private function bloquear_acceso( $mensaje = 'Acceso denegado.' ) {
+        status_header( 403 );
+        nocache_headers();
+        die( $mensaje );
     }
 }
 
